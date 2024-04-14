@@ -6,21 +6,19 @@ from shop.models import Product
 
 
 class Cart:
-    def __init__(self, request) -> None:
-        """Инициализировать корзину."""
+    def __init__(self, request):
+        """Создать корзину."""
         self.session = request.session
         cart = self.session.get(settings.CART_SESSION_ID)
         if not cart:
+            # сохранить пустую корзину в сеансе
             cart = self.session[settings.CART_SESSION_ID] = {}
         self.cart = cart
 
     def __iter__(self):
-        """
-        Iterate over the items in the cart and get the products
-        from the database.
-        """
+        """Итерироваться по элементам корзины."""
         product_ids = self.cart.keys()
-        # get the product objects and add them to the cart
+        # получить объекты product и добавить их в корзину
         products = Product.objects.filter(id__in=product_ids)
         cart = self.cart.copy()
         for product in products:
@@ -31,11 +29,11 @@ class Cart:
             yield item
 
     def __len__(self):
-        """Получить колличество товаров в корзине."""
+        """Получить колво товаров в корзине."""
         return sum(item['quantity'] for item in self.cart.values())
 
     def add(self, product, quantity=1, override_quantity=False):
-        """Добавить товар в корзину или обновить его колличество."""
+        """Добавить товар в корзину или изменить колво."""
         product_id = str(product.id)
         if product_id not in self.cart:
             self.cart[product_id] = {'quantity': 0,
@@ -46,20 +44,19 @@ class Cart:
             self.cart[product_id]['quantity'] += quantity
         self.save()
 
+    def save(self):
+        # пометить сеанс как изменненный, чтобы сохранить изменения
+        self.session.modified = True
+
     def remove(self, product):
-        """Удалить товар из корзины."""
+        """Удалить продукт из корзины."""
         product_id = str(product.id)
         if product_id in self.cart:
             del self.cart[product_id]
             self.save()
 
-    def save(self):
-        # пометить сеанс как "измененный"
-        # чтобы обеспечить его сохранение
-        self.session.modified = True
-
     def clear(self):
-        # Удалить корзину из сеанса
+        # удалить корзину из сеанса
         del self.session[settings.CART_SESSION_ID]
         self.save()
 
